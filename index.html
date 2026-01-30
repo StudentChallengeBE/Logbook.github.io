@@ -9,6 +9,18 @@
             font-family: Arial, sans-serif;
             margin: 20px;
         }
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: center; /* centre le titre par rapport au logo */
+            gap: 10px; /* espace entre le logo et le titre */
+            margin-bottom: 15px;
+        }
+
+        .logo {
+            height: 50px; /* ajuste la taille du logo */
+            width: auto;
+        }
 
         h1 {
             text-align: center;
@@ -75,9 +87,10 @@
 
 <body>
 
-<h1>
-    EASA Flight Logbook – <span id="pilotName"></span>
-</h1>
+<div class="header">
+    <img src="challenge_airline_be.png" alt="Logo" class="logo">
+    <h1>EASA Flight Logbook – <span id="pilotName"></span></h1>
+</div>
 
 <div class="controls">
     <input type="file" id="fileInput" accept=".json">
@@ -123,6 +136,10 @@ function minutesToHHMM(minutes) {
     const h = Math.floor(minutes / 60);
     const m = minutes % 60;
     return `${h}:${m.toString().padStart(2, "0")}`;
+}
+function cleanTime(timeStr) {
+    if (!timeStr) return "";
+    return timeStr.replace(/<[^>]*>/g, "").trim();
 }
 
 fileInput.addEventListener("change", () => {
@@ -170,7 +187,7 @@ function renderLogbook(data) {
             e.departure.airport,
             e.arrival.airport,
             e.departure.time,
-            e.arrival.time,
+            cleanTime(e.arrival.time),
             total,
             pic,
             sic,
@@ -217,4 +234,3 @@ function renderLogbook(data) {
 
 </body>
 </html>
-
