@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <title>EASA Logbook Viewer</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .controls {
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+
+        th, td {
+            border: 1px solid #000;
+            padding: 4px;
+            text-align: center;
+        }
+
+        th {
+            background-color: #eee;
+        }
+
+        tfoot td {
+            font-weight: bold;
+            background-color: #f5f5f5;
+        }
+
+        .left {
+            text-align: left;
+        }
+
+        /* -------- PRINT STYLE -------- */
+        @media print {
+            body {
+                margin: 0;
+            }
+
+            .controls {
+                display: none;
+            }
+
+            table {
+                font-size: 10px;
+            }
+
+            th {
+                background-color: #ddd !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+
+            @page {
+                size: A4 landscape;
+                margin: 10mm;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<h1>
+    EASA Flight Logbook – <span id="pilotName"></span>
+</h1>
+
+<div class="controls">
+    <input type="file" id="fileInput" accept=".json">
+    <button onclick="window.print()">🖨️ Imprimer / Export PDF</button>
+</div>
+
+<table id="logbook" style="display:none">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Type</th>
+            <th>Registration</th>
+            <th>From</th>
+            <th>To</th>
+            <th>Off Block</th>
+            <th>On Block</th>
+            <th>Total Time</th>
+            <th>PIC</th>
+            <th>SIC</th>
+            <th>IFR</th>
+            <th>Night</th>
+            <th>LDG Day</th>
+            <th>LDG Night</th>
+            <th>Remarks</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot></tfoot>
+</table>
+
+<script>
+const fileInput = document.getElementById("fileInput");
+const table = document.getElementById("logbook");
+const tbody = table.querySelector("tbody");
+const tfoot = table.querySelector("tfoot");
+const pilotNameEl = document.getElementById("pilotName");
+
+const AIRCRAFT_TYPE_MAP = {
+    "76F": "B767F"
+};
+
+function minutesToHHMM(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}:${m.toString().padStart(2, "0")}`;
+}
+
+fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        const data = JSON.parse(e.target.result);
+        renderLogbook(data);
+    };
+    reader.readAsText(file);
+});
+
+function renderLogbook(data) {
+    tbody.innerHTML = "";
+    tfoot.innerHTML = "";
+
+    pilotNameEl.textContent = data.pilot?.name || "";
+
+    let totMinutes = 0;
+    let totIFR = 0;
+    let totNight = 0;
+    let totLDGDay = 0;
+    let totLDGNight = 0;
+
+    data.entries.forEach(e => {
+        const tr = document.createElement("tr");
+
+        const date = new Date(e.date).toLocaleDateString("fr-FR");
+        const type = AIRCRAFT_TYPE_MAP[e.aircraft.variant] || e.aircraft.variant;
+        const total = minutesToHHMM(e.flightMinutes);
+        const ifr = minutesToHHMM(e.ifrMinutes);
+        const night = minutesToHHMM(e.nightMinutes);
+        const sic = e.role === "SIC" ? total : "0:00";
+        const pic = "0:00";
+
+        let remarks = e.remarks || "";
+        if (e.isNotSameDay) remarks += " | Arrivée J+1";
+
+        const cells = [
+            date,
+            type,
+            e.aircraft.registration,
+            e.departure.airport,
+            e.arrival.airport,
+            e.departure.time,
+            e.arrival.time,
+            total,
+            pic,
+            sic,
+            ifr,
+            night,
+            e.landings.day,
+            e.landings.night,
+            remarks
+        ];
+
+        cells.forEach((val, i) => {
+            const td = document.createElement("td");
+            td.textContent = val;
+            if (i === 14) td.classList.add("left");
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+
+        totMinutes += e.flightMinutes;
+        totIFR += e.ifrMinutes;
+        totNight += e.nightMinutes;
+        totLDGDay += e.landings.day;
+        totLDGNight += e.landings.night;
+    });
+
+    const trTotal = document.createElement("tr");
+    trTotal.innerHTML = `
+        <td colspan="7">TOTAL</td>
+        <td>${minutesToHHMM(totMinutes)}</td>
+        <td>0:00</td>
+        <td>${minutesToHHMM(totMinutes)}</td>
+        <td>${minutesToHHMM(totIFR)}</td>
+        <td>${minutesToHHMM(totNight)}</td>
+        <td>${totLDGDay}</td>
+        <td>${totLDGNight}</td>
+        <td></td>
+    `;
+    tfoot.appendChild(trTotal);
+
+    table.style.display = "table";
+}
+</script>
+
+</body>
+</html>
