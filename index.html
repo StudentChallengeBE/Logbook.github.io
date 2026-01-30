@@ -121,3 +121,138 @@
             <th>Arrival</th>
             <th>Off Block</th>
             <th>On Block</th>
+            <th>Total Time</th>
+            <th>PIC</th>
+            <th>SIC</th>
+            <th>IFR</th>
+            <th>Night</th>
+            <th>Landings Day</th>
+            <th>Landings Night</th>
+            <th>Remarks</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+    <tfoot></tfoot>
+</table>
+
+<script>
+/* -------- DOM elements -------- */
+const fileInput = document.getElementById("fileInput");
+const table = document.getElementById("logbook");
+const tbody = table.querySelector("tbody");
+const tfoot = table.querySelector("tfoot");
+const pilotNameEl = document.getElementById("pilotName");
+
+/* Map aircraft codes to readable names */
+const AIRCRAFT_TYPE_MAP = {
+    "76F": "B767F"
+};
+
+/* Convert minutes to HH:MM format */
+function minutesToHHMM(minutes) {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return `${h}:${m.toString().padStart(2, "0")}`;
+}
+
+/* Remove any HTML tags from strings (e.g., "+1" span) */
+function cleanTime(timeStr) {
+    if (!timeStr) return "";
+    return timeStr.replace(/<[^>]*>/g, "").trim();
+}
+
+/* -------- File upload event -------- */
+fileInput.addEventListener("change", () => {
+    const file = fileInput.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+        const data = JSON.parse(e.target.result);
+        renderLogbook(data);
+    };
+    reader.readAsText(file);
+});
+
+/* -------- Render logbook table -------- */
+function renderLogbook(data) {
+    tbody.innerHTML = "";
+    tfoot.innerHTML = "";
+
+    pilotNameEl.textContent = data.pilot?.name || "";
+
+    let totMinutes = 0;
+    let totIFR = 0;
+    let totNight = 0;
+    let totLDGDay = 0;
+    let totLDGNight = 0;
+
+    data.entries.forEach(e => {
+        const tr = document.createElement("tr");
+
+        const date = new Date(e.date).toLocaleDateString("en-GB"); // English format
+        const type = AIRCRAFT_TYPE_MAP[e.aircraft.variant] || e.aircraft.variant;
+        const total = minutesToHHMM(e.flightMinutes);
+        const ifr = minutesToHHMM(e.ifrMinutes);
+        const night = minutesToHHMM(e.nightMinutes);
+        const sic = e.role === "SIC" ? total : "0:00";
+        const pic = "0:00";
+
+        let remarks = e.remarks || "";
+        if (e.isNotSameDay) remarks += " | Arrival next day";
+
+        const cells = [
+            date,
+            type,
+            e.aircraft.registration,
+            e.departure.airport,
+            e.arrival.airport,
+            cleanTime(e.departure.time),
+            cleanTime(e.arrival.time),
+            total,
+            pic,
+            sic,
+            ifr,
+            night,
+            e.landings.day,
+            e.landings.night,
+            remarks
+        ];
+
+        cells.forEach((val, i) => {
+            const td = document.createElement("td");
+            td.textContent = val;
+            if (i === 14) td.classList.add("left");
+            tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+
+        totMinutes += e.flightMinutes;
+        totIFR += e.ifrMinutes;
+        totNight += e.nightMinutes;
+        totLDGDay += e.landings.day;
+        totLDGNight += e.landings.night;
+    });
+
+    /* Add totals row */
+    const trTotal = document.createElement("tr");
+    trTotal.innerHTML = `
+        <td colspan="7">TOTAL</td>
+        <td>${minutesToHHMM(totMinutes)}</td>
+        <td>0:00</td>
+        <td>${minutesToHHMM(totMinutes)}</td>
+        <td>${minutesToHHMM(totIFR)}</td>
+        <td>${minutesToHHMM(totNight)}</td>
+        <td>${totLDGDay}</td>
+        <td>${totLDGNight}</td>
+        <td></td>
+    `;
+    tfoot.appendChild(trTotal);
+
+    table.style.display = "table";
+}
+</script>
+
+</body>
+</html>
